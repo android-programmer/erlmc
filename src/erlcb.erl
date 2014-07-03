@@ -35,7 +35,7 @@ encode_request(Request) when is_record(Request, plain_request) ->
   Opaque = Request#plain_request.opaque,
   CAS = Request#plain_request.cas,
   Mechanisms = <<(Request#plain_request.mechanisms)/binary>>,
-  AuthToken = <<(Request#plain_request.un)/binary,(Request#plain_request.pw)/binary>>,
+  AuthToken = <<(Request#plain_request.un)/binary,16#00, (Request#plain_request.un)/binary,16#00, (Request#plain_request.pw)/binary>>,
 
   MechanismsSize = size(Mechanisms),
   AuthTokenSize = size(<<AuthToken/binary>>),
@@ -52,8 +52,8 @@ send_plain_request(Socket,{Un,Pw})->
 
 send_rec(Socket, Request) ->
   gen_tcp:send(Socket, Request),
-  {ok, Bin} = gen_tcp:recv(Socket, 89999999999999999999),
-  Bin.
+  {ok, Bin} = gen_tcp:recv(Socket, 0),
+  io:format("Response: ~s~n ~p~n",[Bin,Bin]).
 
 plain_request() ->
   Mechanisms = <<"PLAIN">>,
@@ -67,10 +67,43 @@ plain_request() ->
   TotalBody = size(<<Mechanisms/binary, AuthToken/binary>>),
   <<?MAGIC:8, ?OP_SASL_AUTH:8, 16#00:16, 16#00:8, 16#00:8, 16#00:16, TotalBody:32, 16#00:32, 16#00:64, Mechanisms/binary, AuthToken:BodySize/binary>>.
 
+%% cluster_topology()->
+%%   case httpc:request("http://localhost:8091/pools/default/bucketsStreaming/test") of
+%%     {ok, Result} ->
+%%   end
+
 test() ->
   R = erlcb:plain_request(),
   {ok, Socket} = gen_tcp:connect("localhost", 11211, [binary, {packet, 0}, {active, false}]),
   Res = erlcb:send_rec(Socket, R),
   io:format("~s~n", [Res]).
+
+t_topology() ->
+  Url = <<"http://us-couchbase.chaatz.com:8091/pools/default/bucketsStreaming/test_topology">>,
+  Opts = [async],
+  LoopFun = fun(Loop, Ref) ->
+    receive
+      {hackney_response, Ref, {status, StatusInt, Reason}} ->
+        io:format("got status: ~p with reason ~p~n", [StatusInt,
+          Reason]),
+        Loop(Loop, Ref);
+      {hackney_response, Ref, {headers, Headers}} ->
+        io:format("got headers: ~p~n", [Headers]),
+        Loop(Loop, Ref);
+      {hackney_response, Ref, done} ->
+        ok;
+      {hackney_response, Ref, Bin} ->
+        io:format("got chunk: ~p~n", [Bin]),
+        Loop(Loop, Ref);
+
+      Else ->
+        io:format("else ~p~n", [Else]),
+        ok
+    end
+  end,
+  {ok, ClientRef} = hackney:get(Url, [], <<>>, Opts),
+  LoopFun(LoopFun, ClientRef).
+
+
 
 
