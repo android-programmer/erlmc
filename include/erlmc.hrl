@@ -1,3 +1,4 @@
+-define(MAGIC,16#80).
 %% Op codes
 -define(OP_Get,       16#00).
 -define(OP_Set,       16#01).
@@ -16,6 +17,20 @@
 -define(OP_Append,    16#0E).
 -define(OP_Prepend,   16#0F).
 -define(OP_Stat,      16#10).
+-define(OP_SASL_AUTH, 16#21).
 
 -record(request, {op_code, data_type=16#00, reserved=16#00, opaque=16#00, cas=16#00, extras = <<>>, key = <<>>, value = <<>>}).
 -record(response, {op_code, data_type, status, opaque, cas, extras, key, value, key_size, extras_size, body_size}).
+-record(plain_request, {
+  op_code = ?OP_SASL_AUTH,
+  data_type=16#00,
+  vBucket=16#0000,
+  opaque=16#00000000,
+  cas=16#000000000000000,
+  mechanisms= <<"PLAIN">>,
+  auth_token,
+  extras = <<>>,
+  key = <<>>,
+  value = <<>>,
+  un = <<>>,
+  pw = <<>>}).

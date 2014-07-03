@@ -55,7 +55,7 @@ start_link() -> start_link([{"localhost", 11211, 1}]).
 start_link(CacheServers) when is_list(CacheServers) ->
 	random:seed(now()),
 	proc_lib:start_link(?MODULE, init, [self(), CacheServers], 5000).
-	
+
 add_server(Host, Port, PoolSize) ->
 	erlang:send(?MODULE, {add_server, Host, Port, PoolSize}),
 	ok.
